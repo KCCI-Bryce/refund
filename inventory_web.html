@@ -1489,18 +1489,48 @@ document.body.insertAdjacentHTML('afterbegin', `
 let db = {};
 
 // Wait for Firebase module to expose loadStore, then boot the app
+function removeFbLoading() {
+  const el = document.getElementById('fb-loading');
+  if (el) el.remove();
+}
+
+function bootApp(data) {
+  const defaults = defaultStore();
+  if (data) {
+    // Merge: ensure all required keys exist even if Firestore dropped empty arrays
+    db = {
+      items:        Array.isArray(data.items)        ? data.items        : defaults.items,
+      transactions: Array.isArray(data.transactions) ? data.transactions : defaults.transactions,
+      categories:   Array.isArray(data.categories)   ? data.categories   : defaults.categories,
+      suppliers:    Array.isArray(data.suppliers)     ? data.suppliers    : defaults.suppliers,
+      settings:     (data.settings && data.settings.currency) ? data.settings : defaults.settings,
+    };
+  } else {
+    db = defaults;
+  }
+  removeFbLoading();
+  init();
+}
+
 function waitForFirebase() {
   if (typeof window._fbLoadStore === 'function') {
+    // Set a 5-second timeout — if Firebase is blocked, fall back to localStorage
+    const timeout = setTimeout(() => {
+      console.warn('Firebase timed out, falling back to localStorage');
+      const raw = localStorage.getItem('inventrack_data');
+      bootApp(raw ? JSON.parse(raw) : null);
+    }, 5000);
+
     window._fbLoadStore().then(data => {
-      db = data || defaultStore();
-      // Also save default data to Firebase if it was brand new
+      clearTimeout(timeout);
+      bootApp(data);
+      // If brand new, save defaults to Firebase
       if (!data) saveStore();
-      document.getElementById('fb-loading').remove();
-      init();
     }).catch(() => {
-      db = defaultStore();
-      document.getElementById('fb-loading').remove();
-      init();
+      clearTimeout(timeout);
+      console.warn('Firebase failed, falling back to localStorage');
+      const raw = localStorage.getItem('inventrack_data');
+      bootApp(raw ? JSON.parse(raw) : null);
     });
   } else {
     setTimeout(waitForFirebase, 50);
