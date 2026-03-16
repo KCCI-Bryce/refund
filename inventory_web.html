@@ -1425,65 +1425,46 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-try {
-  const fbApp = initializeApp({
-    apiKey: "AIzaSyB4XPuCIz6hYF_ko_7bkzhlt3x4BBS_1Hg",
-    authDomain: "refund-7bc6b.firebaseapp.com",
-    projectId: "refund-7bc6b",
-    storageBucket: "refund-7bc6b.firebasestorage.app",
-    messagingSenderId: "603140410447",
-    appId: "1:603140410447:web:c08d8a786e5820307eee3a"
+
+const fbApp = initializeApp({
+  apiKey: "AIzaSyB4XPuCIz6hYF_ko_7bkzhlt3x4BBS_1Hg",
+  authDomain: "refund-7bc6b.firebaseapp.com",
+  projectId: "refund-7bc6b",
+  storageBucket: "refund-7bc6b.firebasestorage.app",
+  messagingSenderId: "603140410447",
+  appId: "1:603140410447:web:c08d8a786e5820307eee3a"
+});
+
+const DB_REF = doc(getFirestore(fbApp), 'inventrack', 'main');
+
+window._fbSave = async (data) => {
+  await setDoc(DB_REF, {
+    items:        JSON.stringify(data.items        || []),
+    transactions: JSON.stringify(data.transactions || []),
+    categories:   JSON.stringify(data.categories   || []),
+    suppliers:    JSON.stringify(data.suppliers     || []),
+    settings:     JSON.stringify(data.settings      || {}),
   });
-  const db_ref = doc(getFirestore(fbApp), 'inventrack', 'main');
-  window._fbSave = async (data) => {
-    await setDoc(db_ref, {
-      items:        JSON.stringify(data.items        || []),
-      transactions: JSON.stringify(data.transactions || []),
-      categories:   JSON.stringify(data.categories   || []),
-      suppliers:    JSON.stringify(data.suppliers     || []),
-      settings:     JSON.stringify(data.settings      || {}),
-      ts: Date.now()
-    });
+};
+
+window._fbLoad = async () => {
+  const snap = await getDoc(DB_REF);
+  if (!snap.exists()) return null;
+  const r = snap.data();
+  return {
+    items:        JSON.parse(r.items        || '[]'),
+    transactions: JSON.parse(r.transactions || '[]'),
+    categories:   JSON.parse(r.categories   || '[]'),
+    suppliers:    JSON.parse(r.suppliers     || '[]'),
+    settings:     JSON.parse(r.settings      || 'null'),
   };
-  window._fbLoad = async () => {
-    const snap = await getDoc(db_ref);
-    if (!snap.exists()) return null;
-    const r = snap.data();
-    return {
-      items:        JSON.parse(r.items        || '[]'),
-      transactions: JSON.parse(r.transactions || '[]'),
-      categories:   JSON.parse(r.categories   || '[]'),
-      suppliers:    JSON.parse(r.suppliers     || '[]'),
-      settings:     JSON.parse(r.settings      || 'null'),
-      ts: r.ts || 0
-    };
-  };
-} catch(e) { console.warn('Firebase unavailable:', e); }
+};
 </script>
 
 <script>
 // ════════════════════════════════════════════════════════
-//  STORAGE — localStorage is PRIMARY, Firebase is backup
+//  STORAGE — Firebase only
 // ════════════════════════════════════════════════════════
-const STORE_KEY = 'inventrack_data';
-
-function saveStore() {
-  // Save to localStorage instantly (always works)
-  localStorage.setItem(STORE_KEY, JSON.stringify(db));
-  // Silently sync to Firebase in background
-  if (window._fbSave) {
-    window._fbSave(db)
-      .then(() => console.log('Firebase synced ✓'))
-      .catch(e => console.warn('Firebase sync failed (data safe in localStorage):', e));
-  }
-}
-
-function loadLocalData() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch(e) { return null; }
-}
 
 function safeData(data) {
   const def = defaultStore();
@@ -1497,33 +1478,72 @@ function safeData(data) {
   };
 }
 
-// ── BOOT: start immediately from localStorage, no waiting ──
-let db = safeData(loadLocalData());
-init();
+function saveStore() {
+  if (!window._fbSave) { console.warn('Firebase not ready yet'); return; }
+  window._fbSave(db)
+    .then(() => console.log('Saved ✓'))
+    .catch(e => {
+      console.error('Save failed:', e);
+      showFirebaseError();
+    });
+}
 
-// ── BACKGROUND SYNC: after 2s, check if Firebase has newer data ──
-setTimeout(function tryFirebaseSync() {
-  if (!window._fbLoad) { setTimeout(tryFirebaseSync, 500); return; }
-  window._fbLoad().then(function(fbData) {
-    if (!fbData) {
-      // Nothing in Firebase yet — push local data up
-      if (window._fbSave) window._fbSave(db).catch(() => {});
-      return;
-    }
-    const localTs = (loadLocalData() || {}).ts || 0;
-    if (fbData.ts > localTs) {
-      // Firebase is newer (e.g. edited on another device) — pull it down
-      console.log('Firebase has newer data — updating local');
-      db = safeData(fbData);
-      db.ts = fbData.ts;
-      localStorage.setItem(STORE_KEY, JSON.stringify(db));
-      renderPage('dashboard');
-    } else {
-      // Local is newer — push to Firebase
-      if (window._fbSave) window._fbSave(db).catch(() => {});
-    }
-  }).catch(() => {}); // silent if blocked
-}, 2000);
+function showFirebaseError() {
+  let el = document.getElementById('fb-error-banner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'fb-error-banner';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#ff4d6a;color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:600;';
+    el.textContent = '⚠ Firebase blocked — disable your ad blocker and refresh the page';
+    document.body.prepend(el);
+  }
+}
+
+// Show loading spinner while Firebase connects
+document.body.insertAdjacentHTML('afterbegin', `
+  <div id="fb-loading" style="position:fixed;inset:0;background:#0a0e1a;z-index:99999;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+    <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:#f0a500;letter-spacing:3px">INVENTRACK</div>
+    <div id="fb-loading-msg" style="font-size:13px;color:#8a9bbf">Connecting to Firebase...</div>
+    <div style="width:40px;height:40px;border:3px solid #1e2d4a;border-top-color:#f0a500;
+      border-radius:50%;animation:spin 0.8s linear infinite"></div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>
+`);
+
+let db = {};
+
+function waitForFirebase(attempts) {
+  attempts = attempts || 0;
+  if (attempts > 60) {
+    // 6 seconds passed — Firebase is likely blocked
+    document.getElementById('fb-loading-msg').textContent = '⚠ Cannot reach Firebase. Please disable your ad blocker and refresh.';
+    document.getElementById('fb-loading-msg').style.color = '#ff4d6a';
+    return;
+  }
+  if (typeof window._fbLoad === 'function') {
+    window._fbLoad()
+      .then(data => {
+        db = safeData(data);
+        if (!data) {
+          // First time — save defaults to Firebase
+          window._fbSave(db).catch(() => {});
+        }
+        document.getElementById('fb-loading').remove();
+        init();
+      })
+      .catch(e => {
+        console.error('Firebase load error:', e);
+        document.getElementById('fb-loading-msg').textContent = '⚠ Firebase error: ' + e.message + ' — disable your ad blocker and refresh.';
+        document.getElementById('fb-loading-msg').style.color = '#ff4d6a';
+      });
+  } else {
+    setTimeout(() => waitForFirebase(attempts + 1), 100);
+  }
+}
+
+waitForFirebase();
+
 
 function defaultStore() {
   return {
@@ -2384,8 +2404,8 @@ function updateCurrencyPreview() {
 
 function confirmClearData() {
   confirm2('⚠ CLEAR ALL DATA', 'This will permanently delete ALL items, transactions, categories, and suppliers. This action cannot be undone!', () => {
-    localStorage.removeItem(STORE_KEY);
     db = defaultStore();
+    saveStore();
     toast('All data cleared', 'warning');
     renderDashboard();
     renderSettings();
