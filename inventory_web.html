@@ -2472,6 +2472,51 @@ function init() {
 }
 
 init();
+
+// ════════════════════════════════════════════════════════
+//  EXPOSE ALL FUNCTIONS TO WINDOW
+//  (required because this is a module script)
+// ════════════════════════════════════════════════════════
+window.navigate = navigate;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.openAddItem = openAddItem;
+window.editItem = editItem;
+window.deleteItem = deleteItem;
+window.saveItem = saveItem;
+window.generateCode = generateCode;
+window.autoCalcPrice = autoCalcPrice;
+window.openStockIn = openStockIn;
+window.openStockOut = openStockOut;
+window.calcStockTotal = calcStockTotal;
+window.confirmStock = confirmStock;
+window.renderInventory = renderInventory;
+window.renderTransactions = renderTransactions;
+window.clearTxFilters = clearTxFilters;
+window.setPeriod = setPeriod;
+window.applyCustomRange = applyCustomRange;
+window.renderReports = renderReports;
+window.renderCategories = renderCategories;
+window.openCategoryForm = openCategoryForm;
+window.editCategory = editCategory;
+window.deleteCat = deleteCat;
+window.saveCategory = saveCategory;
+window.selectColor = selectColor;
+window.renderSuppliers = renderSuppliers;
+window.openSupplierForm = openSupplierForm;
+window.editSupplier = editSupplier;
+window.deleteSupplier = deleteSupplier;
+window.saveSupplier = saveSupplier;
+window.renderSettings = renderSettings;
+window.toggleSetting = toggleSetting;
+window.saveSettings = saveSettings;
+window.confirmClearData = confirmClearData;
+window.exportJSON = exportJSON;
+window.restoreJSON = restoreJSON;
+window.exportCSV = exportCSV;
+window.exportExcel = exportExcel;
+window.updateCurrencyPreview = updateCurrencyPreview;
+
 </script>
 </body>
 </html>
