@@ -1423,9 +1423,6 @@
   min-width:260px;max-width:380px;transition:all 0.3s"></div>
 
 <script type="module">
-// ════════════════════════════════════════════════════════
-//  FIREBASE — imports MUST be first in a module script
-// ════════════════════════════════════════════════════════
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -1439,38 +1436,36 @@ const firebaseConfig = {
   measurementId: "G-25NHP0RWH5"
 };
 
-const app = initializeApp(firebaseConfig);
-const firestore = getFirestore(app);
+const fbApp = initializeApp(firebaseConfig);
+const firestore = getFirestore(fbApp);
 const DOC_REF = doc(firestore, 'inventrack', 'main');
 
-async function loadStore() {
+// loadStore: reads from Firestore and returns the data
+window._fbLoadStore = async function() {
   try {
     const snap = await getDoc(DOC_REF);
     if (snap.exists()) {
       return snap.data();
-    } else {
-      const fresh = defaultStore();
-      await setDoc(DOC_REF, fresh);
-      return fresh;
     }
+    return null; // no data yet
   } catch (e) {
-    console.warn('Firebase load failed, using localStorage fallback:', e);
-    const raw = localStorage.getItem('inventrack_data');
-    return raw ? JSON.parse(raw) : defaultStore();
+    console.warn('Firebase load error:', e);
+    return null;
   }
-}
+};
 
-async function saveStore() {
+// saveStore: accepts data as argument (since db lives in regular script)
+window._fbSaveStore = async function(data) {
   try {
-    await setDoc(DOC_REF, db);
+    await setDoc(DOC_REF, data);
+    console.log('Saved to Firebase OK');
   } catch (e) {
-    console.warn('Firebase save failed, using localStorage fallback:', e);
-    localStorage.setItem('inventrack_data', JSON.stringify(db));
+    console.warn('Firebase save error:', e);
+    localStorage.setItem('inventrack_data', JSON.stringify(data));
   }
-}
-// Expose both to window so the regular script can access them
-window._fbLoadStore = loadStore;
-window._fbSaveStore = saveStore;
+};
+
+console.log('Firebase module ready');
 </script>
 
 <script>
@@ -1497,7 +1492,9 @@ let db = {};
 function waitForFirebase() {
   if (typeof window._fbLoadStore === 'function') {
     window._fbLoadStore().then(data => {
-      db = data;
+      db = data || defaultStore();
+      // Also save default data to Firebase if it was brand new
+      if (!data) saveStore();
       document.getElementById('fb-loading').remove();
       init();
     }).catch(() => {
@@ -1511,10 +1508,10 @@ function waitForFirebase() {
 }
 waitForFirebase();
 
-// Bridge: calls Firebase saveStore from module script
+// Bridge: calls Firebase saveStore, passing db as argument
 function saveStore() {
   if (window._fbSaveStore) {
-    window._fbSaveStore().catch(e => console.error('Save error:', e));
+    window._fbSaveStore(db).catch(e => console.error('Save error:', e));
   } else {
     localStorage.setItem('inventrack_data', JSON.stringify(db));
   }
