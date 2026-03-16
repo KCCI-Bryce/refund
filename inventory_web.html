@@ -1424,8 +1424,10 @@
 
 <script type="module">
 // ════════════════════════════════════════════════════════
-//  FIREBASE SETUP — Replace localStorage with Firestore
+//  FIREBASE — imports MUST be first in a module script
 // ════════════════════════════════════════════════════════
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB4XPuCIz6hYF_ko_7bkzhlt3x4BBS_1Hg",
@@ -1437,16 +1439,9 @@ const firebaseConfig = {
   measurementId: "G-25NHP0RWH5"
 };
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
 const app = initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
 const DOC_REF = doc(firestore, 'inventrack', 'main');
-
-// Make all functions global so the rest of the code works
-window.firestore = firestore;
-window.DOC_REF = DOC_REF;
 
 async function loadStore() {
   try {
@@ -1462,6 +1457,66 @@ async function loadStore() {
     console.warn('Firebase load failed, using localStorage fallback:', e);
     const raw = localStorage.getItem('inventrack_data');
     return raw ? JSON.parse(raw) : defaultStore();
+  }
+}
+
+async function saveStore() {
+  try {
+    await setDoc(DOC_REF, db);
+  } catch (e) {
+    console.warn('Firebase save failed, using localStorage fallback:', e);
+    localStorage.setItem('inventrack_data', JSON.stringify(db));
+  }
+}
+// Expose both to window so the regular script can access them
+window._fbLoadStore = loadStore;
+window._fbSaveStore = saveStore;
+</script>
+
+<script>
+// ════════════════════════════════════════════════════════
+//  MAIN APP — regular (non-module) script
+//  All functions here are global by default
+// ════════════════════════════════════════════════════════
+
+// Show a loading screen while Firebase connects
+document.body.insertAdjacentHTML('afterbegin', `
+  <div id="fb-loading" style="position:fixed;inset:0;background:#0a0e1a;z-index:99999;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+    <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:#f0a500;letter-spacing:3px">INVENTRACK</div>
+    <div style="font-size:13px;color:#8a9bbf">Connecting to database...</div>
+    <div style="width:48px;height:48px;border:3px solid #1e2d4a;border-top-color:#f0a500;
+      border-radius:50%;animation:spin 0.8s linear infinite"></div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>
+`);
+
+let db = {};
+
+// Wait for Firebase module to expose loadStore, then boot the app
+function waitForFirebase() {
+  if (typeof window._fbLoadStore === 'function') {
+    window._fbLoadStore().then(data => {
+      db = data;
+      document.getElementById('fb-loading').remove();
+      init();
+    }).catch(() => {
+      db = defaultStore();
+      document.getElementById('fb-loading').remove();
+      init();
+    });
+  } else {
+    setTimeout(waitForFirebase, 50);
+  }
+}
+waitForFirebase();
+
+// Bridge: calls Firebase saveStore from module script
+function saveStore() {
+  if (window._fbSaveStore) {
+    window._fbSaveStore().catch(e => console.error('Save error:', e));
+  } else {
+    localStorage.setItem('inventrack_data', JSON.stringify(db));
   }
 }
 
@@ -1486,38 +1541,6 @@ function defaultStore() {
     }
   };
 }
-
-async function saveStore() {
-  try {
-    await setDoc(DOC_REF, db);
-  } catch (e) {
-    console.warn('Firebase save failed, using localStorage fallback:', e);
-    localStorage.setItem('inventrack_data', JSON.stringify(db));
-  }
-}
-
-// Show a loading screen while Firebase connects
-document.body.insertAdjacentHTML('afterbegin', `
-  <div id="fb-loading" style="position:fixed;inset:0;background:#0a0e1a;z-index:99999;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
-    <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:#f0a500;letter-spacing:3px">INVENTRACK</div>
-    <div style="font-size:13px;color:#8a9bbf">Connecting to database...</div>
-    <div style="width:48px;height:48px;border:3px solid #1e2d4a;border-top-color:#f0a500;
-      border-radius:50%;animation:spin 0.8s linear infinite"></div>
-    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-  </div>
-`);
-
-let db = {};
-loadStore().then(data => {
-  db = data;
-  document.getElementById('fb-loading').remove();
-  init();
-}).catch(() => {
-  db = defaultStore();
-  document.getElementById('fb-loading').remove();
-  init();
-});
 
 // ════════════════════════════════════════════════════════
 //  UTILITIES
@@ -2474,49 +2497,8 @@ function init() {
 init();
 
 // ════════════════════════════════════════════════════════
-//  EXPOSE ALL FUNCTIONS TO WINDOW
-//  (required because this is a module script)
+//  CLOCK & INIT
 // ════════════════════════════════════════════════════════
-window.navigate = navigate;
-window.openModal = openModal;
-window.closeModal = closeModal;
-window.openAddItem = openAddItem;
-window.editItem = editItem;
-window.deleteItem = deleteItem;
-window.saveItem = saveItem;
-window.generateCode = generateCode;
-window.autoCalcPrice = autoCalcPrice;
-window.openStockIn = openStockIn;
-window.openStockOut = openStockOut;
-window.calcStockTotal = calcStockTotal;
-window.confirmStock = confirmStock;
-window.renderInventory = renderInventory;
-window.renderTransactions = renderTransactions;
-window.clearTxFilters = clearTxFilters;
-window.setPeriod = setPeriod;
-window.applyCustomRange = applyCustomRange;
-window.renderReports = renderReports;
-window.renderCategories = renderCategories;
-window.openCategoryForm = openCategoryForm;
-window.editCategory = editCategory;
-window.deleteCat = deleteCat;
-window.saveCategory = saveCategory;
-window.selectColor = selectColor;
-window.renderSuppliers = renderSuppliers;
-window.openSupplierForm = openSupplierForm;
-window.editSupplier = editSupplier;
-window.deleteSupplier = deleteSupplier;
-window.saveSupplier = saveSupplier;
-window.renderSettings = renderSettings;
-window.toggleSetting = toggleSetting;
-window.saveSettings = saveSettings;
-window.confirmClearData = confirmClearData;
-window.exportJSON = exportJSON;
-window.restoreJSON = restoreJSON;
-window.exportCSV = exportCSV;
-window.exportExcel = exportExcel;
-window.updateCurrencyPreview = updateCurrencyPreview;
-
 </script>
 </body>
 </html>
