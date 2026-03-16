@@ -1445,20 +1445,36 @@ window._fbLoadStore = async function() {
   try {
     const snap = await getDoc(DOC_REF);
     if (snap.exists()) {
-      return snap.data();
+      const raw = snap.data();
+      // Parse stringified arrays back to real arrays
+      return {
+        items:        JSON.parse(raw.items        || '[]'),
+        transactions: JSON.parse(raw.transactions || '[]'),
+        categories:   JSON.parse(raw.categories   || '[]'),
+        suppliers:    JSON.parse(raw.suppliers     || '[]'),
+        settings:     JSON.parse(raw.settings      || 'null'),
+      };
     }
-    return null; // no data yet
+    return null;
   } catch (e) {
     console.warn('Firebase load error:', e);
     return null;
   }
 };
 
-// saveStore: accepts data as argument (since db lives in regular script)
+// saveStore: stringify arrays so Firestore can store them reliably
 window._fbSaveStore = async function(data) {
   try {
-    await setDoc(DOC_REF, data);
-    console.log('Saved to Firebase OK');
+    const payload = {
+      items:        JSON.stringify(data.items        || []),
+      transactions: JSON.stringify(data.transactions || []),
+      categories:   JSON.stringify(data.categories   || []),
+      suppliers:    JSON.stringify(data.suppliers     || []),
+      settings:     JSON.stringify(data.settings      || {}),
+      savedAt:      new Date().toISOString(),
+    };
+    await setDoc(DOC_REF, payload);
+    console.log('Saved to Firebase OK ✓');
   } catch (e) {
     console.warn('Firebase save error:', e);
     localStorage.setItem('inventrack_data', JSON.stringify(data));
