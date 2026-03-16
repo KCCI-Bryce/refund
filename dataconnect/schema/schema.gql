@@ -1,0 +1,47 @@
+type User @table {
+  displayName: String!
+  email: String!
+  role: String!
+  phoneNumber: String
+  address: String
+}
+
+type RefundRequest @table {
+  customer: User!
+  assignedTo: User
+  orderNumber: String!
+  reason: String!
+  status: String!
+  createdAt: Timestamp!
+  amountRequested: Float
+  resolutionDetails: String
+  lastUpdatedAt: Timestamp
+}
+
+type Attachment @table {
+  refundRequest: RefundRequest!
+  uploadedBy: User!
+  fileName: String!
+  fileUrl: String!
+  fileType: String!
+  uploadedAt: Timestamp!
+  description: String
+}
+
+type Message @table {
+  refundRequest: RefundRequest!
+  sender: User!
+  content: String!
+  sentAt: Timestamp!
+  senderRole: String!
+  isRead: Boolean
+}
+
+type RefundStatusLog @table {
+  refundRequest: RefundRequest!
+  changedBy: User!
+  oldStatus: String!
+  newStatus: String!
+  changedAt: Timestamp!
+  notes: String
+}

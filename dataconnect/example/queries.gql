@@ -1,0 +1,25 @@
+query ListBooks @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  books {
+    id
+    title
+    author
+    genre
+  }
+}
+
+mutation AddBook($id: ID!, $title: String!, $author: String!, $genre: String!) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  book_insert(data: {id: $id, title: $title, author: $author, genre: $genre})
+}
+
+query GetBookById($id: ID!) @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  books(where: {id: {eq: $id}}) {
+    id
+    title
+    author
+    genre
+  }
+}
+
+mutation UpdateBookGenre($id: ID!, $genre: String!) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  book_update(key: {id: $id}, data: {genre: $genre})
+}

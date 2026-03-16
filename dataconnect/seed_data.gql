@@ -1,0 +1,25 @@
+mutation CreateSeedData @transaction @auth(level: USER, insecureReason: "This operation is for seed data, only internal users will run it.") {
+  product_insertMany(data: [
+    {
+      id: "product_001",
+      name: "Wireless Headphones",
+      description: "High-quality wireless headphones with noise cancellation.",
+      price: 199.99,
+      stock: 100
+    },
+    {
+      id: "product_002",
+      name: "Smartwatch",
+      description: "Feature-rich smartwatch with fitness tracking.",
+      price: 149.99,
+      stock: 50
+    },
+    {
+      id: "product_003",
+      name: "Portable Bluetooth Speaker",
+      description: "Compact and powerful speaker for on-the-go audio.",
+      price: 79.99,
+      stock: 200
+    }
+  ])
+}
